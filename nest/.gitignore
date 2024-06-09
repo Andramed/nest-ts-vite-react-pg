@@ -1,0 +1,17 @@
+
+.env
+
+
+
+
+
+*.tar.gz
+
+
+node_modules/
+dist/
+.build/
+.DS_Store
+
+
+*.log
