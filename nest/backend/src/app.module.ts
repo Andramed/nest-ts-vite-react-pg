@@ -4,6 +4,9 @@ import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
 import { ConfigModule } from '@nestjs/config';
 import { UserModule } from './user/user.module';
+import { BinanceController } from './binance/binance.controller';
+import { BinanceModule } from './binance/binance.module';
+import { FetchDataModule } from './binance/fetch-data/fetch-data.module';
 
 
 @Module({
@@ -12,9 +15,11 @@ import { UserModule } from './user/user.module';
     ConfigModule.forRoot({
       isGlobal:true
     }),
-    UserModule
+    UserModule,
+    BinanceModule,
+    FetchDataModule
   ],
-  controllers: [AppController],
+  controllers: [AppController, BinanceController],
   providers: [AppService],
 })
 export class AppModule {}
