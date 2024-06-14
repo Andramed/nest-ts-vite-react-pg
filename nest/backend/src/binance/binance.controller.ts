@@ -8,8 +8,8 @@ export class BinanceController {
     ){}
 
     @Get()
-    fetcData() {
+    getMonthData() {
         console.log("Get fetched data");
-        return this.fetchDataService.getOrderFromCustomPeriod();
+        return this.fetchDataService.getData();
     }
 }

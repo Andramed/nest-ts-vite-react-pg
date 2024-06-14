@@ -2,46 +2,92 @@ import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHmac } from 'crypto';
-import { Observable, catchError, map, throwError } from 'rxjs';
+import * as moment from 'moment';
+import { start } from 'repl';
+import { Observable, catchError, switchMap, map, expand, of, throwError, lastValueFrom, from, concatMap } from 'rxjs';
 
 @Injectable()
 export class FetchDataService {
-    API_URL:string = this.configService.get<string>('URL');
-    API_KEY:string = this.configService.get<string>('API_KEY');
-    SECRET_KEY:string = this.configService.get<string>('SECRET_KEY');
-    RECWINDOW:number = 10000;
-    TM:any = Math.floor(Date.now());
-    //year to create to add custom due we need to obtaine data from diferit year
+    private dataAccumulator: any[] = [];  // Array pentru a stoca datele acumulate
+
+    API_URL: string = this.configService.get<string>('URL');
+    API_KEY: string = this.configService.get<string>('API_KEY');
+    SECRET_KEY: string = this.configService.get<string>('SECRET_KEY');
+    RECWINDOW: number = 10000;
+    ROW_NUMBER: number = 40;
+
     constructor(
         private configService: ConfigService,
         private httpService: HttpService
-    ){}
+    ) {}
 
-    transformDateInEchoFormat = (date: string): number => {
-        const elementeData = date.split(" ");
-        const dataFormatUTC = new Date(`${elementeData[0].split("-").reverse().join("-")}T${elementeData[1]}:00`);
-        return dataFormatUTC.getTime();
-    };
-
-    getOrderFromCustomPeriod(): Observable<any>{
-        let startDate = this.transformDateInEchoFormat("02-02-2024 00:00");
-        let endDate = this.transformDateInEchoFormat("02-02-2024 00:00");
-        let QUERY = `recvWindow=${this.RECWINDOW}&timestamp=${this.TM}&startTimestamp=${startDate}&endTimestamp=${endDate}`;
-        const SIGNATURE = createHmac('sha256', this.SECRET_KEY).update(QUERY).digest('hex');
-        const url:string = `${this.API_URL}?${QUERY}&signature=${SIGNATURE}`
-        
-        return this.httpService.get(url, {
-            headers: { 'X-MBX-APIKEY': this.API_KEY },
-          }).pipe(
-            map(response => response.data),
-            catchError(error => {
-              console.error({
-                message: "We have an error when we try to fetch data from custom fetch",
-                error: error.message,
-              });
-              return throwError(() => new Error('Failed to fetch data from Binance API'));
-            })
-          );
+    private transformDateInEchoFormat(dateString: string): number {
+        return moment(dateString, "DD-MM-YYYY HH:mm").valueOf();
     }
-    
+
+    private getTimeStamp(): Observable<number> {
+        const URL_TIMESTAMP = this.configService.get("URL_TIMESTAMP");
+        return this.httpService.get(URL_TIMESTAMP).pipe(
+            map(response => response.data.serverTime),
+            catchError(err => {
+                console.error('Error fetching server time:', err.message);
+                return throwError(() => new Error('Failed to fetch server time from Binance API'));
+            })
+        );
+    }
+
+    getData( ): Observable<any> {
+        const startDate = "01-02-2024 00:00";
+        const endDate = "04-02-2024 23:59"
+        const startTimestamp = this.transformDateInEchoFormat(startDate);
+        const endTimestamp = this.transformDateInEchoFormat(endDate);
+        let page = 1
+        return this.getTimeStamp().pipe(
+            switchMap(timeStamp => {
+                let QUERY = `recvWindow=${this.RECWINDOW}&timestamp=${timeStamp}&startTimestamp=${startTimestamp}&endTimestamp=${endTimestamp}&rows=${this.ROW_NUMBER}&page=${page}`; 
+                const SIGNATURE = createHmac('sha256', this.SECRET_KEY).update(QUERY).digest('hex');
+                const url: string = `${this.API_URL}?${QUERY}&signature=${SIGNATURE}`;
+
+                return this.httpService.get<any>(url, {
+                    headers: { 'X-MBX-APIKEY': this.API_KEY }
+                }).pipe(
+                    map(res => {
+                        if (!res.data || !Array.isArray(res.data.data)) {
+                            throw new Error('Invalid API response');
+                        }
+
+                        console.log({
+                            message: `Data fetched for page ${page}`,
+                            start: startDate,
+                            end: endDate,
+                            total: res.data.data.length,
+                            response: res.data,
+                            url
+                        });
+
+                       return res.data.data
+
+                        
+                    }),
+                    catchError(err => {
+                        console.error({
+                            message: "We have an error when we try to fetch data from custom fetch",
+                            error: err.message,
+                            stack: err.stack,
+                            config: err.config,
+                            response: err.response ? {
+                                data: err.response.data,
+                                status: err.response.status,
+                                headers: err.response.headers
+                            } : null
+                        });
+                        return throwError(() => new Error("Failed to fetch data from Binance API"));
+                    }),
+                    
+                );
+            })
+        );
+    }
+
+
 }
