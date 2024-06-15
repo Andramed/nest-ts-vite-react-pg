@@ -10,6 +10,7 @@ export class BinanceController {
     @Get()
     getMonthData() {
         console.log("Get fetched data");
-        return this.fetchDataService.getData();
+        return this.fetchDataService.getDataForMonths()
+            
     }
 }

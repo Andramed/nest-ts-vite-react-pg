@@ -1,29 +1,25 @@
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { log } from 'console';
 import { createHmac } from 'crypto';
 import * as moment from 'moment';
-import { start } from 'repl';
-import { Observable, catchError, switchMap, map, expand, of, throwError, lastValueFrom, from, concatMap } from 'rxjs';
+import { tap } from 'node:test/reporters';
+import { Observable, catchError, concatMap, expand, from, map, of, reduce, switchMap, throwError, lastValueFrom, mergeMap } from 'rxjs';
 
 @Injectable()
 export class FetchDataService {
-    private dataAccumulator: any[] = [];  // Array pentru a stoca datele acumulate
-
+    
     API_URL: string = this.configService.get<string>('URL');
     API_KEY: string = this.configService.get<string>('API_KEY');
     SECRET_KEY: string = this.configService.get<string>('SECRET_KEY');
     RECWINDOW: number = 10000;
-    ROW_NUMBER: number = 40;
+    ROW_NUMBER: number = 10;
 
     constructor(
         private configService: ConfigService,
         private httpService: HttpService
     ) {}
-
-    private transformDateInEchoFormat(dateString: string): number {
-        return moment(dateString, "DD-MM-YYYY HH:mm").valueOf();
-    }
 
     private getTimeStamp(): Observable<number> {
         const URL_TIMESTAMP = this.configService.get("URL_TIMESTAMP");
@@ -35,13 +31,16 @@ export class FetchDataService {
             })
         );
     }
-
-    getData( ): Observable<any> {
-        const startDate = "01-02-2024 00:00";
-        const endDate = "04-02-2024 23:59"
+    private transformDateInEchoFormat(dateString: string): number {
+        return moment(dateString, "DD-MM-YYYY HH:mm").valueOf();
+    }
+    getData(startDate: string, endDate: string): Observable<any> {
         const startTimestamp = this.transformDateInEchoFormat(startDate);
         const endTimestamp = this.transformDateInEchoFormat(endDate);
-        let page = 1
+        let page = 1;
+
+       
+
         return this.getTimeStamp().pipe(
             switchMap(timeStamp => {
                 let QUERY = `recvWindow=${this.RECWINDOW}&timestamp=${timeStamp}&startTimestamp=${startTimestamp}&endTimestamp=${endTimestamp}&rows=${this.ROW_NUMBER}&page=${page}`; 
@@ -55,19 +54,7 @@ export class FetchDataService {
                         if (!res.data || !Array.isArray(res.data.data)) {
                             throw new Error('Invalid API response');
                         }
-
-                        console.log({
-                            message: `Data fetched for page ${page}`,
-                            start: startDate,
-                            end: endDate,
-                            total: res.data.data.length,
-                            response: res.data,
-                            url
-                        });
-
-                       return res.data.data
-
-                        
+                        return res.data;
                     }),
                     catchError(err => {
                         console.error({
@@ -81,13 +68,41 @@ export class FetchDataService {
                                 headers: err.response.headers
                             } : null
                         });
-                        return throwError(() => new Error("Failed to fetch data from Binance API"));
+                        return of([]);
                     }),
-                    
                 );
             })
         );
     }
 
+    
+    getDataForMonths(): Observable<any> {
+        const startOfTheYear = moment().startOf('year');
+        const months = [];
+
+        for (let month = 0; month < 12; month++) {
+            const start = startOfTheYear.clone().add(month, 'months').startOf('month').format("DD-MM-YYYY HH:mm:ss");
+            const end = startOfTheYear.clone().add(month, 'months').endOf('month').format("DD-MM-YYYY HH:mm:ss");
+            months.push({ start, end });
+        }
+
+        return from(months).pipe(
+            mergeMap(month => {
+                return this.getData(month.start, month.end).pipe(
+                    map(data => ({
+                        month: month.start,
+                        orders: data.data,
+                        total: data.total,
+                        start: month.start,
+                        end: month.end
+                    }))
+                );
+            })
+        );
+    }
+
+    getDetailedListOfOrder() {
+
+    }
 
 }
