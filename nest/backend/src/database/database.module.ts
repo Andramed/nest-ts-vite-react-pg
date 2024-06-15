@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { User } from 'src/user/user.entity';
+import { BinanceModule } from 'src/binance/binance.module';
+import { SaveDataModule } from 'src/save-data/save-data.module';
 
 
 @Module({
@@ -9,6 +11,7 @@ import { User } from 'src/user/user.entity';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    ConfigModule.forRoot(),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -23,6 +26,8 @@ import { User } from 'src/user/user.entity';
         synchronize: true,
       }),
     }),
+    BinanceModule,
+    SaveDataModule
   ],
 })
 export class DatabaseModule {}

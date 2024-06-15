@@ -2,11 +2,13 @@ import { Module } from '@nestjs/common';
 import { FetchDataService } from './fetch-data.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
+import { SaveDataModule } from 'src/save-data/save-data.module';
 
 @Module({
   imports: [
     ConfigModule,
-    HttpModule
+    HttpModule,
+    SaveDataModule
   ],
   providers: [
     FetchDataService,

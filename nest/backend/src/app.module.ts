@@ -7,6 +7,9 @@ import { UserModule } from './user/user.module';
 import { BinanceController } from './binance/binance.controller';
 import { BinanceModule } from './binance/binance.module';
 import { FetchDataModule } from './binance/fetch-data/fetch-data.module';
+import { SaveDataModule } from './save-data/save-data.module';
+
+
 
 
 @Module({
@@ -17,7 +20,8 @@ import { FetchDataModule } from './binance/fetch-data/fetch-data.module';
     }),
     UserModule,
     BinanceModule,
-    FetchDataModule
+    FetchDataModule,
+    SaveDataModule
   ],
   controllers: [AppController, BinanceController],
   providers: [AppService],
