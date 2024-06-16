@@ -1,38 +1,68 @@
-// src/save-data/order.entity.ts
-import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
 export class Order {
     @PrimaryGeneratedColumn()
-    id: number;
+    id?: number;
+
+    @Column({unique: true})
+    orderNumber: string;
 
     @Column()
-    orderId: string;
+    advNo: string;
 
     @Column()
-    clientOrderId: string;
+    tradeType: string;
 
     @Column()
-    symbol: string;
+    asset: string;
 
     @Column()
-    side: string;
+    fiat: string;
 
     @Column()
-    type: string;
-
-    @Column('decimal', { precision: 20, scale: 8 })
-    price: number;
-
-    @Column('decimal', { precision: 20, scale: 8 })
-    quantity: number;
+    fiatSymbol: string;
 
     @Column()
-    status: string;
+    amount: string;
 
-    @Column({ type: 'timestamp' })
-    timestamp: Date;
+    @Column()
+    totalPrice: string;
 
-    @Column({ type: 'timestamp' })
-    transactionTime: Date;
+    @Column()
+    unitPrice: string;
+
+    @Column()
+    orderStatus: string;
+
+    @Column({type: "bigint"})
+    createTime: number;
+
+    @Column()
+    commission: string;
+
+    @Column()
+    takerCommissionRate: string;
+
+    @Column()
+    takerCommission: string;
+
+    @Column()
+    takerAmount: string;
+
+    @Column()
+    counterPartNickName: string;
+
+    @Column({default: "will be aded"})
+    advertisementRole: string;
+
+    @Column()
+    additionalKycVerify: number;
+
+	// @Column()
+	// imageUrl?: string;
+
+    
+
+    // No need to add imageUrl property as it's not present in the order object
 }

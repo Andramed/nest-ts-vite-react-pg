@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHmac } from 'crypto';
 import * as moment from 'moment';
-import { Observable, catchError, concatMap, expand, from, map, of, reduce, switchMap, throwError, lastValueFrom, mergeMap, forkJoin } from 'rxjs';
+import { Observable, catchError, concatMap, expand, from, map, of, reduce, switchMap, throwError, lastValueFrom, mergeMap, forkJoin, defaultIfEmpty, tap } from 'rxjs';
 import { Order } from 'src/save-data/order.entity';
 import { SaveDataService } from 'src/save-data/save-data.service';
 import { Repository } from 'typeorm';
@@ -16,7 +16,7 @@ export class FetchDataService {
     API_KEY: string = this.configService.get<string>('API_KEY');
     SECRET_KEY: string = this.configService.get<string>('SECRET_KEY');
     RECWINDOW: number = 10000;
-    ROW_NUMBER: number = 100;
+    ROW_NUMBER: number = 10;
     
 
     constructor(
@@ -43,8 +43,6 @@ export class FetchDataService {
     getData(startDate: string, endDate: string, page:number =1): Observable<any> {
         const startTimestamp = this.transformDateInEchoFormat(startDate);
         const endTimestamp = this.transformDateInEchoFormat(endDate);
-
-       
 
         return this.getTimeStamp().pipe(
             switchMap(timeStamp => {
@@ -85,7 +83,7 @@ export class FetchDataService {
         const startOfTheYear = moment().startOf('year');
         const months = [];
 
-        for (let month = 5; month < 6; month++) {
+        for (let month = 0; month < 12; month++) {
             const start = startOfTheYear.clone().add(month, 'months').startOf('month').format("DD-MM-YYYY HH:mm:ss");
             const end = startOfTheYear.clone().add(month, 'months').endOf('month').format("DD-MM-YYYY HH:mm:ss");
             months.push({ start, end });
@@ -108,39 +106,25 @@ export class FetchDataService {
 
     getDetailedListOfOrder(): Observable<any> {
         return this.getDataForMonths().pipe(
-            concatMap(monthData => {
-                const totalOrders = monthData.total;
-                const totalPages = Math.ceil(totalOrders / this.ROW_NUMBER);
+            mergeMap(monthData => {
+                const {total, orders, end, start} = monthData;
+                const pages = Math.ceil(total/ this.ROW_NUMBER);
+                const pageArray = Array.from({ length: pages }, (_, i) => i + 1);
 
-                if (totalPages <= 1) {
-                    return of(monthData.orders);
-                }
+                return from(pageArray).pipe(
+                    concatMap(page =>
+                        this.getData(start, end, page).pipe(
+                            map(data => data.data as Order[]) 
+                        )
+                    ),
+                    reduce((acc, orders) => acc.concat(orders), []),
+                    mergeMap(allOrders => {
+                        return this.saveDataService.saveOrders(allOrders);
+                    })
+                )
 
-                return from(Array(totalPages - 1).keys()).pipe(
-                    concatMap(page => this.getData(monthData.start, monthData.end, page + 2).pipe(
-                        map(data => data.data)
-                    )),
-                    reduce((acc, orders) => acc.concat(orders), monthData.orders)
-                );
-            }),
-            reduce((acc, orders) => acc.concat(orders), []),
-            mergeMap(detailedOrders => {
-                const ordersToSave = detailedOrders.map(order => ({
-                    orderId: order.id,
-                    clientOrderId: order.clientOrderId,
-                    symbol: order.symbol,
-                    side: order.side,
-                    type: order.type,
-                    price: order.price,
-                    quantity: order.quantity,
-                    status: order.status,
-                    timestamp: new Date(order.timestamp),
-                    transactionTime: new Date(order.transactionTime),
-                }) as Order);
-
-                return from(this.saveDataService.saveOrders(ordersToSave));
             })
         );
     }
-
+    
 }

@@ -4,6 +4,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { User } from 'src/user/user.entity';
 import { BinanceModule } from 'src/binance/binance.module';
 import { SaveDataModule } from 'src/save-data/save-data.module';
+import { DatabaseService } from './database.service';
+import { Order } from 'src/save-data/order.entity';
+import { Repository } from 'typeorm';
 
 
 @Module({
@@ -22,12 +25,14 @@ import { SaveDataModule } from 'src/save-data/save-data.module';
         username: configService.get<string>('DATABASE_USERNAME'),
         password: configService.get<string>('DATABASE_PASSWORD'),
         database: configService.get<string>('DATABASE_NAME'),
-        entities: [User],
+        entities: [User,Order],
         synchronize: true,
       }),
     }),
     BinanceModule,
     SaveDataModule
   ],
+  providers:[DatabaseService, Repository],
+  exports: [DatabaseService]
 })
 export class DatabaseModule {}

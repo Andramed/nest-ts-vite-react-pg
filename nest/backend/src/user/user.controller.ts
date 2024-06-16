@@ -8,7 +8,7 @@ import { CreateUserDto } from 'src/dto/create-user.dto';
 export class UserController {
     constructor(private readonly userService: UserService) {}
 
-    @Post()
+  @Post()
   @UseInterceptors(FileInterceptor(''))
   async createUser(@Body() createUserData: CreateUserDto): Promise<User> {
     console.log(createUserData);

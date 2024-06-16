@@ -8,6 +8,8 @@ import { BinanceController } from './binance/binance.controller';
 import { BinanceModule } from './binance/binance.module';
 import { FetchDataModule } from './binance/fetch-data/fetch-data.module';
 import { SaveDataModule } from './save-data/save-data.module';
+import { DatabaseController } from './database/database.controller';
+import { DatabaseService } from './database/database.service';
 
 
 
@@ -21,9 +23,10 @@ import { SaveDataModule } from './save-data/save-data.module';
     UserModule,
     BinanceModule,
     FetchDataModule,
-    SaveDataModule
+    SaveDataModule,
+    
   ],
-  controllers: [AppController, BinanceController],
+  controllers: [AppController, BinanceController, DatabaseController],
   providers: [AppService],
 })
 export class AppModule {}
