@@ -9,17 +9,23 @@ export class BinanceController {
     ){}
 
     @Get()
-    getMonthData(): Observable<any> {
+    getMonthData1(): Observable<any> {
         console.log("Fetching detailed list of orders");
-        const observable = this.fetchDataService.getDetailedListOfOrder().pipe(
-            tap(data => console.log('Data emitted:', data)), // Adaugă debug aici
-        );
+        const observable = this.fetchDataService.getDetailedListOfOrder2()
 
-        // Abonează-te pentru debugging
+        
         observable.subscribe(data => {
             console.log('Final result:', data);
         });
 
         return observable;
     }
+
+   
+    @Get()
+        getMonthData(): Observable<any> {
+            console.log("Fetching detailed list of orders");
+            return this.fetchDataService.getDetailedListOfOrder2();
+        }
+
 }

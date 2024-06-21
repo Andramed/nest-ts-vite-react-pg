@@ -37,13 +37,14 @@ export class FetchDataService {
             })
         );
     }
+
     private transformDateInEchoFormat(dateString: string): number {
         return moment(dateString, "DD-MM-YYYY HH:mm").valueOf();
     }
+    
     getData(startDate: string, endDate: string, page:number =1): Observable<any> {
         const startTimestamp = this.transformDateInEchoFormat(startDate);
         const endTimestamp = this.transformDateInEchoFormat(endDate);
-
         return this.getTimeStamp().pipe(
             switchMap(timeStamp => {
                 let QUERY = `recvWindow=${this.RECWINDOW}&timestamp=${timeStamp}&startTimestamp=${startTimestamp}&endTimestamp=${endTimestamp}&rows=${this.ROW_NUMBER}&page=${page}`; 
@@ -82,13 +83,11 @@ export class FetchDataService {
     getDataForMonths(): Observable<any> {
         const startOfTheYear = moment().startOf('year');
         const months = [];
-
         for (let month = 0; month < 12; month++) {
             const start = startOfTheYear.clone().add(month, 'months').startOf('month').format("DD-MM-YYYY HH:mm:ss");
             const end = startOfTheYear.clone().add(month, 'months').endOf('month').format("DD-MM-YYYY HH:mm:ss");
             months.push({ start, end });
         }
-
         return from(months).pipe(
             mergeMap(month => {
                 return this.getData(month.start, month.end).pipe(
@@ -103,14 +102,12 @@ export class FetchDataService {
             })
         );
     }
-
     getDetailedListOfOrder(): Observable<any> {
         return this.getDataForMonths().pipe(
             mergeMap(monthData => {
                 const {total, orders, end, start} = monthData;
                 const pages = Math.ceil(total/ this.ROW_NUMBER);
                 const pageArray = Array.from({ length: pages }, (_, i) => i + 1);
-
                 return from(pageArray).pipe(
                     concatMap(page =>
                         this.getData(start, end, page).pipe(
@@ -122,9 +119,52 @@ export class FetchDataService {
                         return this.saveDataService.saveOrders(allOrders);
                     })
                 )
+            })
+        );
+    }
 
+    getDetailedListOfOrder2(): Observable<any> {
+        return this.getDataForMonths().pipe(
+            mergeMap(monthData => {
+                const {total, orders, end, start} = monthData;
+                const pages = Math.ceil(total / this.ROW_NUMBER);
+                const pageArray = Array.from({ length: pages }, (_, i) => i + 1);
+                return from(pageArray).pipe(
+                    mergeMap(page =>
+                        this.getData(start, end, page).pipe(
+                            mergeMap(data => 
+                                this.saveDataService.saveOrders(data.data).pipe(
+                                    map(saveResult => ({
+                                        page,
+                                        saveResult,
+                                        message: `Data for page:${page} obtained and saved`
+                                    })),
+                                    catchError(err => {
+                                        console.error({
+                                            message: `Error saving data for page: ${page}`,
+                                            err
+                                        });
+                                        return of({
+                                            page,
+                                            error: err,
+                                            message: `Error saving data for page: ${page}`
+                                        });
+                                    })
+                                )
+                            )
+                        )
+                    ),
+                    tap(result => {
+                        console.log(result.message);
+                    })
+                );
             })
         );
     }
     
+    
+
+    
+    
 }
+ 

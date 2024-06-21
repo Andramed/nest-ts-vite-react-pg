@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Delete } from '@nestjs/common';
 import { log } from 'console';
 import { Observable, from } from 'rxjs';
 import { DatabaseService } from './database.service';
@@ -18,4 +18,17 @@ export class DatabaseController {
     findAll(): Promise<Order[]> {
         return this.databaseService.findAll();
     }
+
+    
+
+    @Delete('delete')
+    deleteAllOrders(): Observable<{ message: string, deletedCount: number }> {
+        return this.databaseService.deleteAllOrders();
+    }
+    
+    @Delete('deleteEntity')
+    deleteTable(): Observable<{ message: string, deletedCount: number }> {
+        return this.databaseService.deleteAllEntities();
+    }
+
 }

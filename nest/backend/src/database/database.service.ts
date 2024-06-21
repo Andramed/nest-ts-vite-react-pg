@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { log } from 'console';
-import { Observable, from } from 'rxjs';
+import { Observable, catchError, from, map } from 'rxjs';
 import { Order } from 'src/save-data/order.entity';
 import { DataSource, Repository } from 'typeorm';
 
@@ -46,6 +46,52 @@ export class DatabaseService {
                 console.log(`find all orders ${ await this.orderRepository.find()}`);
                 
                 return this.orderRepository.find();
+            }
+
+            deleteAllOrders(): Observable<{ message: string, deletedCount: number }> {
+                return from(
+                    this.orderRepository.createQueryBuilder()
+                        .delete()
+                        .from(Order)
+                        .execute()
+                ).pipe(
+                    map(result => {
+                        const deletedCount = result.affected || 0;
+                        console.log('delete orders');
+                        
+                        return { 
+                            message: `Successfully deleted ${deletedCount} orders`, 
+                            deletedCount 
+                        };
+                    }),
+                    catchError(err => {
+                        console.error('Error deleting orders:', err);
+                        throw new Error('Failed to delete orders');
+                    })
+                ) as Observable<{ message: string, deletedCount: number }>
+            }
+
+            deleteAllEntities(): Observable<{ message: string, deletedCount: number }> {
+                return from(
+                    this.orderRepository.createQueryBuilder()
+                        .delete()
+                        .from(Order)
+                        .execute()
+                ).pipe(
+                    map(result => {
+                        const deletedCount = result.affected || 0;
+                        console.log(`Deleted ${deletedCount} Order records`);
+                        
+                        return { 
+                            message: `Successfully Deleted ${deletedCount} Order records`, 
+                            deletedCount 
+                        };
+                    }),
+                    catchError(err => {
+                        console.error(`Error deleting Order records:`, err);
+                        throw new Error(`Failed to delete Order records`);
+                    })
+                );
             }
         
 }
