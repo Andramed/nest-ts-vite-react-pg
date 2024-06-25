@@ -22,7 +22,7 @@ export class SaveDataService {
                 from(this.orderRepository.save(order)).pipe(
                     map(savedOrder => ({ order: savedOrder, error: null })), // Return the saved order
                     catchError(err => {
-                        console.error('Error saving order:', order.orderNumber, err);
+                       
                         return from([{ order, error: err }]); // Return the order and error
                     })
                 )

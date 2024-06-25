@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { log } from 'console';
-import { Observable, catchError, from, map } from 'rxjs';
+import { Observable, catchError, from, map, mergeMap } from 'rxjs';
 import { Order } from 'src/save-data/order.entity';
 import { DataSource, Repository } from 'typeorm';
 
@@ -55,20 +55,20 @@ export class DatabaseService {
                         .from(Order)
                         .execute()
                 ).pipe(
-                    map(result => {
+                    mergeMap(result => {
                         const deletedCount = result.affected || 0;
-                        console.log('delete orders');
-                        
-                        return { 
-                            message: `Successfully deleted ${deletedCount} orders`, 
-                            deletedCount 
-                        };
+                        return from(this.orderRepository.query('ALTER SEQUENCE public.order_id_seq RESTART WITH 1')).pipe(
+                            map(() => ({
+                                message: `Successfully deleted ${deletedCount} orders and reset ID sequence`,
+                                deletedCount,
+                            }))
+                        );
                     }),
                     catchError(err => {
                         console.error('Error deleting orders:', err);
                         throw new Error('Failed to delete orders');
                     })
-                ) as Observable<{ message: string, deletedCount: number }>
+                );
             }
 
             deleteAllEntities(): Observable<{ message: string, deletedCount: number }> {

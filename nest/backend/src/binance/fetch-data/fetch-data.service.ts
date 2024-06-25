@@ -9,6 +9,12 @@ import { Order } from 'src/save-data/order.entity';
 import { SaveDataService } from 'src/save-data/save-data.service';
 import { Repository } from 'typeorm';
 
+interface pageResult {
+    pageNumber: number;
+    savedOrder: number;
+    failedOrder: number;
+}
+
 @Injectable()
 export class FetchDataService {
     
@@ -17,7 +23,7 @@ export class FetchDataService {
     SECRET_KEY: string = this.configService.get<string>('SECRET_KEY');
     RECWINDOW: number = 10000;
     ROW_NUMBER: number = 10;
-    
+    totalForYears: { [key: string]: any } = {}
 
     constructor(
         private configService: ConfigService,
@@ -30,7 +36,9 @@ export class FetchDataService {
     private getTimeStamp(): Observable<number> {
         const URL_TIMESTAMP = this.configService.get("URL_TIMESTAMP");
         return this.httpService.get(URL_TIMESTAMP).pipe(
-            map(response => response.data.serverTime),
+            map(response => {
+                return response.data.serverTime
+            }),
             catchError(err => {
                 console.error('Error fetching server time:', err.message);
                 return throwError(() => new Error('Failed to fetch server time from Binance API'));
@@ -46,7 +54,7 @@ export class FetchDataService {
         const startTimestamp = this.transformDateInEchoFormat(startDate);
         const endTimestamp = this.transformDateInEchoFormat(endDate);
         return this.getTimeStamp().pipe(
-            switchMap(timeStamp => {
+            switchMap(timeStamp => { //la fiecare emitere de nou timestamp acesta anuleaza cel previous si face alta cerere
                 let QUERY = `recvWindow=${this.RECWINDOW}&timestamp=${timeStamp}&startTimestamp=${startTimestamp}&endTimestamp=${endTimestamp}&rows=${this.ROW_NUMBER}&page=${page}`; 
                 const SIGNATURE = createHmac('sha256', this.SECRET_KEY).update(QUERY).digest('hex');
                 const url: string = `${this.API_URL}?${QUERY}&signature=${SIGNATURE}`;
@@ -83,7 +91,7 @@ export class FetchDataService {
     getDataForMonths(): Observable<any> {
         const startOfTheYear = moment().startOf('year');
         const months = [];
-        for (let month = 0; month < 12; month++) {
+        for (let month = 0; month < 6; month++) {
             const start = startOfTheYear.clone().add(month, 'months').startOf('month').format("DD-MM-YYYY HH:mm:ss");
             const end = startOfTheYear.clone().add(month, 'months').endOf('month').format("DD-MM-YYYY HH:mm:ss");
             months.push({ start, end });
@@ -91,42 +99,31 @@ export class FetchDataService {
         return from(months).pipe(
             mergeMap(month => {
                 return this.getData(month.start, month.end).pipe(
-                    map(data => ({
-                        month: month.start,
-                        orders: data.data,
-                        total: data.total,
-                        start: month.start,
-                        end: month.end
-                    }))
+                    map(data => {
+                        const monthKey = `month${month.start}`;
+                        this.totalForYears[monthKey] = {
+                            total: data.total,
+                            start: month.start,
+                            end: month.end
+                        };
+                        return {
+                            month: month.start,
+                            orders: data.data,
+                            total: data.total,
+                            start: month.start,
+                            end: month.end
+                        }
+                    })
                 );
             })
         );
     }
+   
+
     getDetailedListOfOrder(): Observable<any> {
         return this.getDataForMonths().pipe(
             mergeMap(monthData => {
-                const {total, orders, end, start} = monthData;
-                const pages = Math.ceil(total/ this.ROW_NUMBER);
-                const pageArray = Array.from({ length: pages }, (_, i) => i + 1);
-                return from(pageArray).pipe(
-                    concatMap(page =>
-                        this.getData(start, end, page).pipe(
-                            map(data => data.data as Order[]) 
-                        )
-                    ),
-                    reduce((acc, orders) => acc.concat(orders), []),
-                    mergeMap(allOrders => {
-                        return this.saveDataService.saveOrders(allOrders);
-                    })
-                )
-            })
-        );
-    }
-
-    getDetailedListOfOrder2(): Observable<any> {
-        return this.getDataForMonths().pipe(
-            mergeMap(monthData => {
-                const {total, orders, end, start} = monthData;
+                const { total, orders, end, start } = monthData;
                 const pages = Math.ceil(total / this.ROW_NUMBER);
                 const pageArray = Array.from({ length: pages }, (_, i) => i + 1);
                 return from(pageArray).pipe(
@@ -134,19 +131,21 @@ export class FetchDataService {
                         this.getData(start, end, page).pipe(
                             mergeMap(data => 
                                 this.saveDataService.saveOrders(data.data).pipe(
-                                    map(saveResult => ({
-                                        page,
-                                        saveResult,
-                                        message: `Data for page:${page} obtained and saved`
-                                    })),
+                                    map(saveResult => {
+                                        return {
+                                            page: page,
+                                            savedOrders: saveResult.savedOrders.length,
+                                            failedOrders: saveResult.failedOrders.length
+                                        };
+                                    }),
                                     catchError(err => {
                                         console.error({
                                             message: `Error saving data for page: ${page}`,
-                                            err
                                         });
                                         return of({
-                                            page,
-                                            error: err,
+                                            page: page,
+                                            savedOrders: 0,
+                                            failedOrders: data.data.length,  // Assuming all failed
                                             message: `Error saving data for page: ${page}`
                                         });
                                     })
@@ -154,13 +153,18 @@ export class FetchDataService {
                             )
                         )
                     ),
-                    tap(result => {
-                        console.log(result.message);
-                    })
+                    reduce((acc, res) => {
+                        acc[`page${res.page}`] = {
+                            savedOrders: res.savedOrders,
+                            failedOrders: res.failedOrders
+                        };
+                        return acc;
+                    }, {} as { [key: string]: { savedOrders: number, failedOrders: number } })
                 );
             })
         );
     }
+    
     
     
 

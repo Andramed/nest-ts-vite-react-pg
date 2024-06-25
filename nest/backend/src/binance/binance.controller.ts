@@ -11,21 +11,10 @@ export class BinanceController {
     @Get()
     getMonthData1(): Observable<any> {
         console.log("Fetching detailed list of orders");
-        const observable = this.fetchDataService.getDetailedListOfOrder2()
-
-        
-        observable.subscribe(data => {
-            console.log('Final result:', data);
-        });
-
+        const observable = this.fetchDataService.getDetailedListOfOrder()
         return observable;
     }
 
    
-    @Get()
-        getMonthData(): Observable<any> {
-            console.log("Fetching detailed list of orders");
-            return this.fetchDataService.getDetailedListOfOrder2();
-        }
 
 }
