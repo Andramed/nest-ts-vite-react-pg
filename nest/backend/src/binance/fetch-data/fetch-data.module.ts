@@ -3,16 +3,20 @@ import { FetchDataService } from './fetch-data.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
 import { SaveDataModule } from 'src/save-data/save-data.module';
+import { DatabaseModule } from 'src/database/database.module';
+import { DatabaseService } from 'src/database/database.service';
 
 @Module({
   imports: [
     ConfigModule,
     HttpModule,
-    SaveDataModule
+    SaveDataModule,
+  
   ],
   providers: [
     FetchDataService,
-    ConfigService
+    ConfigService,
+    DatabaseService
   ],
   exports: [FetchDataService]
 })

@@ -4,7 +4,8 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHmac } from 'crypto';
 import * as moment from 'moment';
-import { Observable, catchError, concatMap, expand, from, map, of, reduce, switchMap, throwError, lastValueFrom, mergeMap, forkJoin, defaultIfEmpty, tap } from 'rxjs';
+import { Observable, catchError, concatMap, expand, from, map, of, reduce, switchMap, throwError, lastValueFrom, mergeMap, forkJoin, defaultIfEmpty, tap, retry } from 'rxjs';
+import { DatabaseService } from 'src/database/database.service';
 import { Order } from 'src/save-data/order.entity';
 import { SaveDataService } from 'src/save-data/save-data.service';
 import { Repository } from 'typeorm';
@@ -30,7 +31,8 @@ export class FetchDataService {
         private httpService: HttpService,
         @InjectRepository(Order)
         private orderRepository: Repository<Order>,
-        private saveDataService: SaveDataService
+        private saveDataService: SaveDataService,
+        private databaseService: DatabaseService
     ) {}
 
     private getTimeStamp(): Observable<number> {
@@ -46,13 +48,26 @@ export class FetchDataService {
         );
     }
 
-    private transformDateInEchoFormat(dateString: string): number {
-        return moment(dateString, "DD-MM-YYYY HH:mm").valueOf();
+    private transformDateInEchoFormat(dateString: string | number): number {
+        if (typeof dateString === 'number') {
+            console.log(`dateString is a number: ${dateString}`);
+            return dateString;
+        } else {
+            console.log(`dateString is a string: ${dateString}`);
+            return moment(dateString, "DD-MM-YYYY HH:mm").valueOf();
+        }
     }
     
-    getData(startDate: string, endDate: string, page:number =1): Observable<any> {
+
+  
+    
+    getData(startDate: string | number, endDate: string|number, page:number =1): Observable<any> {
         const startTimestamp = this.transformDateInEchoFormat(startDate);
         const endTimestamp = this.transformDateInEchoFormat(endDate);
+        console.log({
+            startTimestamp, endTimestamp
+        });
+        
         return this.getTimeStamp().pipe(
             switchMap(timeStamp => { //la fiecare emitere de nou timestamp acesta anuleaza cel previous si face alta cerere
                 let QUERY = `recvWindow=${this.RECWINDOW}&timestamp=${timeStamp}&startTimestamp=${startTimestamp}&endTimestamp=${endTimestamp}&rows=${this.ROW_NUMBER}&page=${page}`; 
@@ -88,14 +103,22 @@ export class FetchDataService {
     }
 
     
-    getDataForMonths(): Observable<any> {
+    
+    getDataForMonths(startDate?: moment.Moment, endDate?: moment.Moment): Observable<any> {
         const startOfTheYear = moment().startOf('year');
+        const start = startDate ? startDate.clone().startOf('month') : startOfTheYear;
+        const end = endDate ? endDate : moment();
+        
         const months = [];
-        for (let month = 0; month < 6; month++) {
-            const start = startOfTheYear.clone().add(month, 'months').startOf('month').format("DD-MM-YYYY HH:mm:ss");
-            const end = startOfTheYear.clone().add(month, 'months').endOf('month').format("DD-MM-YYYY HH:mm:ss");
-            months.push({ start, end });
+        let current = start;
+    
+        while (current.isBefore(end)) {
+            const monthStart = current.clone().format("DD-MM-YYYY HH:mm:ss");
+            const monthEnd = current.clone().endOf('month').isAfter(end) ? end.format("DD-MM-YYYY HH:mm:ss") : current.clone().endOf('month').format("DD-MM-YYYY HH:mm:ss");
+            months.push({ start: monthStart, end: monthEnd });
+            current.add(1, 'month');
         }
+    
         return from(months).pipe(
             mergeMap(month => {
                 return this.getData(month.start, month.end).pipe(
@@ -112,16 +135,15 @@ export class FetchDataService {
                             total: data.total,
                             start: month.start,
                             end: month.end
-                        }
+                        };
                     })
                 );
             })
         );
     }
-   
 
-    getDetailedListOfOrder(): Observable<any> {
-        return this.getDataForMonths().pipe(
+    getDetailedListOfOrder(startDate?: moment.Moment, endDate?: moment.Moment): Observable<any> {
+        return this.getDataForMonths(startDate, endDate).pipe(
             mergeMap(monthData => {
                 const { total, orders, end, start } = monthData;
                 const pages = Math.ceil(total / this.ROW_NUMBER);
@@ -165,7 +187,32 @@ export class FetchDataService {
         );
     }
     
-    
+    updateOrders():Observable<any> {
+        const currentDate = moment()
+        const currentDateString = currentDate.format('DD-MM-YYYY HH:mm:ss');
+       return this.databaseService.getLastOrderByDateInDb().pipe(
+            switchMap(order => {
+                const startTimeForFetchData = moment(Number(order.createTime)).format('DD-MM-YYYY HH:mm:ss');
+                const startDate = moment(startTimeForFetchData, 'DD-MM-YYYY HH:mm:ss');
+                const differenceInDays = currentDate.diff(startDate, 'days');
+                console.log({
+                    startDate, currentDate
+                });
+                
+                if (differenceInDays > 30) {
+                    console.log(`difference of the day is big than 30 days`);
+                    return this.getDetailedListOfOrder(startDate, currentDate);
+                } else {
+                    return this.getDetailedListOfOrder(startDate, currentDate, ).pipe(
+                        map(res => {
+                            console.log(res);
+                            return res;
+                        })
+                    );
+                }
+            })
+        )
+    }
     
 
     

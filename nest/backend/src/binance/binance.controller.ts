@@ -15,6 +15,10 @@ export class BinanceController {
         return observable;
     }
 
-   
+   @Get('updateOrders')
+   updateOrdersInDB(): Observable<any> {
+        console.log('update orders');
+        return this.fetchDataService.updateOrders()
+   }
 
 }

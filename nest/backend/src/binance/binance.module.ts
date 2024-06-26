@@ -6,11 +6,13 @@ import { FetchDataService } from './fetch-data/fetch-data.service';
 import { HttpModule } from '@nestjs/axios';
 import { SaveDataModule } from 'src/save-data/save-data.module';
 import { SaveDataService } from 'src/save-data/save-data.service';
+import { DatabaseModule } from 'src/database/database.module';
+import { DatabaseService } from 'src/database/database.service';
 
 
 @Module({
   controllers: [BinanceController],
-  providers: [BinanceService,FetchDataService, SaveDataService],
+  providers: [BinanceService,FetchDataService, SaveDataService, DatabaseService],
   imports: [FetchDataModule, HttpModule, SaveDataModule]
 })
 export class BinanceModule {}

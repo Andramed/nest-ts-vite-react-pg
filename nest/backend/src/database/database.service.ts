@@ -48,6 +48,21 @@ export class DatabaseService {
                 return this.orderRepository.find();
             }
 
+            getLastOrderByDateInDb(): Observable<Order> {
+                console.log(`Get last order from DB by date`);
+                return from(
+                    this.orderRepository.find({
+                        order: {
+                            createTime: 'DESC'
+                        },
+                        take: 1 // Limităm rezultatele la 1
+                    })
+                ).pipe(
+                    map(orders => orders[0]) // Luăm primul rezultat din lista ordonată
+                );
+            }
+            
+
             deleteAllOrders(): Observable<{ message: string, deletedCount: number }> {
                 return from(
                     this.orderRepository.createQueryBuilder()
